@@ -1,1 +1,187 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Какой ты маяк</title>
+    
+    <script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+            background: linear-gradient(135deg, #f4f7ff, #e8f0ff);
+            text-align: center;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .loader {
+            font-size: 24px;
+            color: #5181b8;
+            margin-bottom: 30px;
+            font-weight: 500;
+        }
+        #vk-id {
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            background: rgba(0, 0, 0, 0.92);
+            color: #00ff88;
+            padding: 14px 20px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            z-index: 999999;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+            display: none;
+            border: 2px solid #00ff88;
+        }
+        .status {
+            margin: 25px 0;
+            font-size: 18px;
+            color: #333;
+            min-height: 28px;
+        }
+        .btn {
+            margin-top: 20px;
+            padding: 16px 40px;
+            font-size: 19px;
+            background: #0077ff;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            box-shadow: 0 6px 20px rgba(0, 119, 255, 0.3);
+            transition: all 0.3s;
+        }
+        .btn:hover {
+            background: #0066dd;
+            transform: translateY(-2px);
+        }
+        .info {
+            margin-top: 40px;
+            font-size: 14px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="loader" id="loader">Загрузка квиза...</div>
+    <div id="vk-id">👤 VK ID: <span id="id-value"></span></div>
+    <div class="status" id="status"></div>
+
+    <button class="btn" id="quiz-btn" style="display: none;" onclick="openQuiz()">
+        Пройти квиз
+    </button>
+
+    <div class="info">
+        После прохождения квиза ваш VK ID будет сохранён для статистики вуза
+    </div>
+
+    <script>
+        console.log('🚀 VK Mini App Wrapper — сбор VK ID для вуза v6');
+
+        let vkUserId = null;
+        const API_URL = '/api/save-vk-id';   // Относительный путь — работает после добавления API
+
+        function showVkId(id) {
+            vkUserId = Number(id);
+            document.getElementById('id-value').textContent = vkUserId;
+            document.getElementById('vk-id').style.display = 'block';
+            console.log('✅ VK User ID получен:', vkUserId);
+        }
+
+        async function saveToVercel(source = 'wrapper') {
+            if (!vkUserId) return false;
+
+            try {
+                const res = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        vk_user_id: vkUserId,
+                        source: source
+                    })
+                });
+
+                if (!res.ok) throw new Error('Ошибка ответа');
+
+                const data = await res.json();
+                console.log(`✅ ID сохранён. Всего участников: ${data.total || '?'}`);
+                
+                document.getElementById('status').innerHTML = 
+                    `✓ VK ID сохранён<br>Всего участников: <strong>${data.total || '?'}</strong>`;
+                
+                return true;
+            } catch (e) {
+                console.error('❌ Ошибка сохранения на Vercel:', e);
+                document.getElementById('status').innerHTML = 
+                    `⚠ Не удалось сохранить ID (проверьте API)`;
+                return false;
+            }
+        }
+
+        function openQuiz() {
+            const baseLink = "https://mrqz.me/69e11b260789030019533d08";
+            let finalLink = baseLink;
+
+            if (vkUserId) {
+                finalLink += (baseLink.includes('?') ? '&' : '?') + `vk_user_id=${vkUserId}`;
+            }
+
+            console.log('Переход в Marquiz с ID:', vkUserId);
+            saveToVercel('before_quiz');
+
+            setTimeout(() => {
+                window.location.replace(finalLink);
+            }, 800);
+        }
+
+        // Основная инициализация
+        async function init() {
+            const loader = document.getElementById('loader');
+            const btn = document.getElementById('quiz-btn');
+
+            // 1. Получаем ID из URL параметров (самый надёжный способ в VK Mini Apps)
+            const urlParams = new URLSearchParams(window.location.search);
+            let idFromUrl = urlParams.get('vk_user_id');
+
+            if (idFromUrl) {
+                showVkId(idFromUrl);
+            }
+
+            // 2. Запасной вариант через VK Bridge
+            try {
+                await vkBridge.send('VKWebAppInit');
+                const userInfo = await vkBridge.send('VKWebAppGetUserInfo');
+                if (userInfo?.id && !vkUserId) {
+                    showVkId(userInfo.id);
+                }
+            } catch (e) {
+                console.log('VK Bridge не сработал');
+            }
+
+            // 3. Если ID получен — сохраняем и показываем кнопку
+            if (vkUserId) {
+                loader.style.display = 'none';
+                btn.style.display = 'block';
+                
+                // Сохраняем ID сразу при открытии приложения
+                await saveToVercel('app_open');
+            } else {
+                loader.textContent = 'Не удалось получить VK ID.\nПерезапустите приложение из ВКонтакте.';
+                loader.style.color = '#ff4444';
+            }
+        }
+
+        // Запуск при загрузке страницы
+        window.onload = init;
+    </script>
+</body>
+</html>
 
