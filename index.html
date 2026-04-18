@@ -6,7 +6,6 @@
     <title>Какой ты маяк</title>
     
     <script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
-
     <style>
         body {
             margin: 0;
@@ -37,96 +36,104 @@
             display: none;
             border: 2px solid #00ff88;
         }
+        .status {
+            margin-top: 20px;
+            font-size: 18px;
+            color: #333;
+        }
     </style>
 </head>
 <body>
-
-    <div class="loader">Загрузка квиза...</div>
+    <div class="loader" id="loader">Загрузка квиза...</div>
     <div id="vk-id">👤 VK ID: <span id="id-value"></span></div>
+    <div class="status" id="status"></div>
 
     <script>
-        console.log('🚀 VK Mini App wrapper v5 — агрессивная очистка');
-
-        // Максимальное подавление предупреждений
-        (function suppressWarnings() {
-            const originalWarn = console.warn;
-            const originalError = console.error;
-
-            console.warn = function(...args) {
-                const msg = String(args[0] || '');
-                if (msg.includes('autoplay') ||
-                    msg.includes('mozPressure') ||
-                    msg.includes('mozInputSource') ||
-                    msg.includes('InstallTrigger') ||
-                    msg.includes('message from https://mrqz.me') ||
-                    msg.includes('OpaqueResponseBlocking') ||
-                    msg.includes('Glyph bbox') ||
-                    msg.includes('WEBGL_debug_renderer_info')) {
-                    return;
-                }
-                originalWarn.apply(console, args);
-            };
-
-            console.error = function(...args) {
-                const msg = String(args[0] || '');
-                if (msg.includes('OpaqueResponseBlocking')) return;
-                originalError.apply(console, args);
-            };
-        })();
-
-        // Инициализация VK Bridge
-        vkBridge.send('VKWebAppInit').catch(() => {});
+        console.log('🚀 VK Mini App — сбор VK ID для вуза');
 
         let vkUserId = null;
+        const API_URL = 'https://твой-проект.vercel.app/api/save-vk-id';   // ←←← ИЗМЕНИ НА СВОЙ
 
         function showVkId(id) {
-            vkUserId = id;
-            document.getElementById('id-value').textContent = id;
+            vkUserId = Number(id);
+            document.getElementById('id-value').textContent = vkUserId;
             document.getElementById('vk-id').style.display = 'block';
-            window.vkUserId = id;
-            window.vk_user_id = id;
-            console.log('✅ VK User ID:', id);
+            console.log('✅ Получен VK User ID:', vkUserId);
         }
 
-        // Получаем ID из URL
-        const urlParams = new URLSearchParams(window.location.search);
-        vkUserId = urlParams.get('vk_user_id');
+        // Сохранение ID на Vercel
+        async function saveToVercel(source = 'wrapper') {
+            if (!vkUserId) return;
 
-        if (vkUserId) {
-            showVkId(vkUserId);
-        }
-
-        // Bridge как запасной вариант
-        async function tryBridge() {
             try {
-                const userInfo = await vkBridge.send('VKWebAppGetUserInfo');
-                if (userInfo.id && !vkUserId) {
-                    showVkId(userInfo.id);
-                }
-            } catch (e) {}
+                const res = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        vk_user_id: vkUserId,
+                        source: source
+                    })
+                });
+
+                const data = await res.json();
+                console.log(`✅ ID сохранён на Vercel. Всего: ${data.total || '?'}`);
+                document.getElementById('status').innerHTML = 
+                    `VK ID сохранён<br>Всего участников: <strong>${data.total || '?'}</strong>`;
+            } catch (e) {
+                console.error('Ошибка сохранения на Vercel:', e);
+            }
         }
 
+        // Переход в Marquiz с передачей ID
         function redirectToMarquiz() {
             const baseLink = "https://mrqz.me/69e11b260789030019533d08";
             let finalLink = baseLink;
+
             if (vkUserId) {
                 finalLink += (baseLink.includes('?') ? '&' : '?') + `vk_user_id=${vkUserId}`;
             }
 
-            // Задержка + очистка консоли перед переходом
+            console.log('%cПереход в Marquiz с ID: ' + vkUserId, 'color:#00ff88; font-size:16px');
+
+            // Сохраняем перед переходом
+            saveToVercel('before_redirect');
+
             setTimeout(() => {
-                console.clear();
-                console.log('%c✅ Переход в Marquiz. ID передан: ' + vkUserId, 'color:#00ff88; font-size:14px');
                 window.location.replace(finalLink);
-            }, 1800); // увеличил задержку, чтобы Marquiz успел загрузиться частично
+            }, 1200);
         }
 
-        // Запуск
-        window.onload = async () => {
-            if (vkUserId) showVkId(vkUserId);
-            await tryBridge();
-            redirectToMarquiz();
-        };
+        // Основная логика
+        async function init() {
+            // 1. Пробуем получить из URL (самый быстрый способ)
+            const urlParams = new URLSearchParams(window.location.search);
+            let idFromUrl = urlParams.get('vk_user_id') || urlParams.get('vk_user_id');
+
+            if (idFromUrl) {
+                showVkId(idFromUrl);
+            }
+
+            // 2. Запасной вариант — VK Bridge
+            try {
+                await vkBridge.send('VKWebAppInit');
+                const userInfo = await vkBridge.send('VKWebAppGetUserInfo');
+                if (userInfo && userInfo.id && !vkUserId) {
+                    showVkId(userInfo.id);
+                }
+            } catch (e) {
+                console.log('Bridge не сработал, используем URL');
+            }
+
+            // 3. Если ID есть — сохраняем и переходим
+            if (vkUserId) {
+                await saveToVercel('init');
+                redirectToMarquiz();
+            } else {
+                document.getElementById('loader').textContent = 'Не удалось получить VK ID. Попробуйте перезапустить приложение.';
+            }
+        }
+
+        window.onload = init;
     </script>
 </body>
 </html>
