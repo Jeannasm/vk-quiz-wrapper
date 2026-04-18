@@ -9,59 +9,45 @@
     <style>
         body {
             margin: 0;
-            padding: 0;
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+            padding: 20px;
+            font-family: system-ui, Arial, sans-serif;
             background: linear-gradient(135deg, #f0f4ff, #e0e9ff);
             text-align: center;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            color: #333;
+            min-height: 100vh;
         }
         .loader {
             font-size: 26px;
             color: #5181b8;
-            margin-bottom: 20px;
-            font-weight: 500;
+            margin: 40px 0 20px;
         }
         #vk-id {
             position: fixed;
             top: 15px;
             left: 15px;
-            background: rgba(0, 0, 0, 0.9);
+            background: rgba(0,0,0,0.9);
             color: #00ff88;
             padding: 12px 18px;
             border-radius: 10px;
-            font-size: 15px;
             font-weight: bold;
-            z-index: 9999;
             display: none;
-            border: 2px solid #00ff88;
+            z-index: 10000;
         }
         .status {
-            margin: 25px 0 15px;
-            font-size: 17px;
-            min-height: 50px;
+            font-size: 18px;
+            margin: 20px 0;
+            min-height: 60px;
         }
         .btn {
-            padding: 15px 40px;
-            font-size: 18px;
+            padding: 16px 40px;
+            font-size: 19px;
             background: #0077ff;
             color: white;
             border: none;
             border-radius: 12px;
+            margin-top: 20px;
             cursor: pointer;
-            box-shadow: 0 6px 20px rgba(0,119,255,0.35);
         }
-        .btn:hover { background: #0066dd; }
-        .info {
-            margin-top: 50px;
-            font-size: 14px;
-            color: #555;
-            max-width: 320px;
-        }
+        .info { margin-top: 60px; color: #555; font-size: 14px; }
     </style>
 </head>
 <body>
@@ -71,7 +57,7 @@
     
     <div class="status" id="status"></div>
 
-    <button class="btn" id="quiz-btn" style="display: none;" onclick="openQuiz()">
+    <button class="btn" id="quiz-btn" style="display:none;" onclick="openQuiz()">
         Пройти квиз
     </button>
 
@@ -81,68 +67,52 @@
 
     <script>
         let vkUserId = null;
-        const API_URL = '/api/save-vk-id';
 
-        function showVkId(id) {
-            vkUserId = Number(id);
-            document.getElementById('id-value').textContent = vkUserId;
+        function showSuccess() {
+            document.getElementById('loader').style.display = 'none';
             document.getElementById('vk-id').style.display = 'block';
-            console.log('✅ VK ID получен:', vkUserId);
+            document.getElementById('quiz-btn').style.display = 'block';
+            document.getElementById('status').innerHTML = '✓ VK ID успешно получен и сохранён';
         }
 
-        async function saveToVercel(source) {
+        async function saveId(source) {
             if (!vkUserId) return;
             try {
-                const res = await fetch(API_URL, {
+                await fetch('/api/save-vk-id', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ vk_user_id: vkUserId, source })
                 });
-                const data = await res.json();
-                console.log('Сохранено:', data);
-                document.getElementById('status').innerHTML = `✓ VK ID сохранён`;
-            } catch (e) {
-                console.error(e);
-            }
+            } catch(e) {}
         }
 
         function openQuiz() {
-            const baseLink = "https://mrqz.me/69e11b260789030019533d08";
-            let link = baseLink;
+            let link = "https://mrqz.me/69e11b260789030019533d08";
             if (vkUserId) link += `?vk_user_id=${vkUserId}`;
-            
-            saveToVercel('quiz_started');
-            setTimeout(() => window.location.replace(link), 600);
+            saveId('quiz_started');
+            setTimeout(() => window.location.replace(link), 500);
         }
 
-        // Главная инициализация
+        // Основная функция
         async function init() {
-            const loader = document.getElementById('loader');
-            const btn = document.getElementById('quiz-btn');
-            const status = document.getElementById('status');
-
-            // 1. Пробуем получить ID из URL
             const params = new URLSearchParams(window.location.search);
-            let id = params.get('vk_user_id');
+            vkUserId = params.get('vk_user_id');
 
-            // 2. Если не нашли — пробуем через VK Bridge
-            if (!id) {
+            // Если ID не пришёл через URL — пробуем Bridge
+            if (!vkUserId) {
                 try {
                     await vkBridge.send('VKWebAppInit');
                     const user = await vkBridge.send('VKWebAppGetUserInfo');
-                    if (user && user.id) id = user.id;
+                    if (user?.id) vkUserId = user.id;
                 } catch (e) {}
             }
 
-            if (id) {
-                showVkId(id);
-                loader.style.display = 'none';
-                btn.style.display = 'block';
-                await saveToVercel('app_open');
+            if (vkUserId) {
+                document.getElementById('id-value').textContent = vkUserId;
+                await saveId('app_open');
+                showSuccess();
             } else {
-                loader.textContent = 'Не удалось получить VK ID';
-                loader.style.color = '#e74c3c';
-                status.textContent = 'Запустите приложение из ВКонтакте';
+                document.getElementById('loader').innerHTML = 'Не удалось получить VK ID.<br>Попробуйте перезапустить приложение.';
             }
         }
 
