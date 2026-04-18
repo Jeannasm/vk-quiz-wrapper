@@ -16,80 +16,109 @@
             align-items: center;
             justify-content: center;
             overflow: hidden;
+            color: #333;
         }
         .container {
             text-align: center;
-            max-width: 100%;
+            max-width: 90%;
         }
         .loader {
             font-size: 26px;
             color: #5181b8;
+            margin-bottom: 20px;
+        }
+        .status {
+            font-size: 15px;
+            color: #666;
             margin-bottom: 40px;
+        }
+        button {
+            padding: 14px 32px;
+            font-size: 18px;
+            background: #5181b8;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
         }
         iframe {
             width: 100vw;
             height: 100vh;
             border: none;
+            position: fixed;
+            top: 0;
+            left: 0;
         }
     </style>
 </head>
 <body>
     <div class="container" id="loaderScreen">
         <div class="loader">Инициализация приложения...</div>
-        <div style="font-size: 15px; color: #666;">Получаем ваш VK ID</div>
+        <div class="status" id="status">Получаем ваш VK ID</div>
+        <button onclick="startQuizManually()" id="startBtn" style="display:none;">
+            Начать квиз
+        </button>
     </div>
 
     <iframe id="quizFrame" style="display: none;"></iframe>
 
     <script>
-        // Инициализация VK Bridge
-        vkBridge.send('VKWebAppInit')
-            .then(() => console.log('VK Bridge инициализирован'))
-            .catch(err => console.error('VK Bridge init error', err));
+        let vkId = null;
+        let userData = {};
 
-        async function startQuiz() {
-            const loader = document.getElementById('loaderScreen');
-            const iframe = document.getElementById('quizFrame');
+        // Инициализация Bridge
+        vkBridge.send('VKWebAppInit');
 
+        async function tryGetUserInfo() {
+            const statusEl = document.getElementById('status');
             try {
-                // Получаем данные пользователя
+                statusEl.textContent = "Запрашиваем данные пользователя...";
                 const user = await vkBridge.send('VKWebAppGetUserInfo');
                 
-                console.log('✅ VK ID получен:', user.id);
+                vkId = user.id;
+                userData = user;
+                console.log('✅ VK ID успешно получен:', vkId);
 
-                // ←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←
-                // ВСТАВЬ СЮДА СВОЮ ПРЯМУЮ ССЫЛКУ НА MARQUIZ
-                let quizUrl = "https://mrqz.me/твоя_ссылка_на_квиз";   // ← ИЗМЕНИ ЭТУ СТРОКУ!
-
-                // Добавляем параметры
-                const params = new URLSearchParams();
-                params.append('vk_id', user.id);
-                if (user.first_name) params.append('first_name', user.first_name);
-                if (user.last_name) params.append('last_name', user.last_name);
-
-                const separator = quizUrl.includes('?') ? '&' : '?';
-                const finalUrl = quizUrl + separator + params.toString();
-
-                // Загружаем квиз в iframe
-                iframe.src = finalUrl;
-                iframe.style.display = 'block';
-                loader.style.display = 'none';
-
-            } catch (error) {
-                console.error('Ошибка получения VK ID:', error);
-
-                // Fallback — открываем квиз без ID
-                let quizUrl = "https://mrqz.me/69e11b260789030019533d08";   // ← ТОЖЕ ИЗМЕНИ!
-                iframe.src = quizUrl;
-                iframe.style.display = 'block';
-                loader.style.display = 'none';
+                // Автоматически продолжаем
+                loadQuiz();
+                return true;
+            } catch (err) {
+                console.warn('VKWebAppGetUserInfo не сработал автоматически:', err);
+                statusEl.textContent = "Нажмите кнопку ниже, чтобы продолжить";
+                document.getElementById('startBtn').style.display = 'inline-block';
+                return false;
             }
         }
 
-        // Запускаем после загрузки страницы
+        function loadQuiz() {
+            const loader = document.getElementById('loaderScreen');
+            const iframe = document.getElementById('quizFrame');
+
+            // ←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←
+            // Замени эту строку на свою реальную ссылку Marquiz!
+            let quizBaseUrl = "https://mrqz.me/твоя_прямая_ссылка_на_квиз";
+
+            const params = new URLSearchParams();
+            if (vkId) params.append('vk_id', vkId);
+            if (userData.first_name) params.append('first_name', userData.first_name);
+            if (userData.last_name) params.append('last_name', userData.last_name);
+
+            const separator = quizBaseUrl.includes('?') ? '&' : '?';
+            const finalUrl = quizBaseUrl + separator + params.toString();
+
+            iframe.src = finalUrl;
+            iframe.style.display = 'block';
+            loader.style.display = 'none';
+        }
+
+        // Ручной запуск (кнопка)
+        window.startQuizManually = function() {
+            loadQuiz();
+        };
+
+        // Автоматический запуск при загрузке
         window.addEventListener('load', () => {
-            // Небольшая задержка для стабильности
-            setTimeout(startQuiz, 600);
+            setTimeout(tryGetUserInfo, 800);
         });
     </script>
 </body>
