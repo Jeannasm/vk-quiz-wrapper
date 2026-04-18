@@ -45,10 +45,34 @@
     <div id="vk-id">👤 VK ID: <span id="id-value"></span></div>
 
     <script>
-        // === Фиксы предупреждений ===
-        console.log('🚀 VK Mini App wrapper запущен');
+        console.log('🚀 VK Mini App wrapper v3 — с фиксами предупреждений');
 
-        // Инициализация Bridge
+        // Фиксы для уменьшения спама в консоли
+        (function fixWarnings() {
+            // Отключаем автозапуск AudioContext
+            const originalAudioContext = window.AudioContext || window.webkitAudioContext;
+            if (originalAudioContext) {
+                window.AudioContext = function() {
+                    const ctx = new originalAudioContext();
+                    ctx.resume = ctx.resume || function(){};
+                    return ctx;
+                };
+            }
+
+            // Подавляем некоторые известные предупреждения
+            const originalConsoleWarn = console.warn;
+            console.warn = function(...args) {
+                if (typeof args[0] === 'string' && 
+                    (args[0].includes('autoplay') || 
+                     args[0].includes('mozPressure') || 
+                     args[0].includes('mozInputSource'))) {
+                    return; // глушим эти предупреждения
+                }
+                originalConsoleWarn.apply(console, args);
+            };
+        })();
+
+        // Инициализация VK Bridge
         vkBridge.send('VKWebAppInit').catch(() => {});
 
         let vkUserId = null;
@@ -60,6 +84,7 @@
             idDiv.style.display = 'block';
             window.vkUserId = id;
             window.vk_user_id = id;
+            console.log('✅ VK User ID показан:', id);
         }
 
         // Получаем ID из URL
@@ -67,7 +92,7 @@
         vkUserId = urlParams.get('vk_user_id');
 
         if (vkUserId) {
-            console.log('✅ VK User ID получен:', vkUserId);
+            console.log('✅ VK User ID получен из URL:', vkUserId);
             showVkId(vkUserId);
         }
 
@@ -78,7 +103,9 @@
                 if (userInfo.id && !vkUserId) {
                     showVkId(userInfo.id);
                 }
-            } catch (e) {}
+            } catch (e) {
+                console.error('Bridge error:', e);
+            }
         }
 
         function redirectToMarquiz() {
@@ -87,9 +114,11 @@
             if (vkUserId) {
                 finalLink += (baseLink.includes('?') ? '&' : '?') + `vk_user_id=${vkUserId}`;
             }
+            console.log('🔄 Переход в Marquiz:', finalLink);
+            
             setTimeout(() => {
                 window.location.replace(finalLink);
-            }, 1500); // задержка, чтобы увидеть ID
+            }, 1400);
         }
 
         // Запуск
