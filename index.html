@@ -45,49 +45,55 @@
     <div id="vk-id">👤 VK ID: <span id="id-value"></span></div>
 
     <script>
-        console.log('🚀 VK Mini App wrapper v3 — с фиксами предупреждений');
+        console.log('🚀 VK Mini App wrapper v4 — максимальная очистка консоли');
 
-        // Фиксы для уменьшения спама в консоли
-        (function fixWarnings() {
-            // Отключаем автозапуск AudioContext
-            const originalAudioContext = window.AudioContext || window.webkitAudioContext;
-            if (originalAudioContext) {
-                window.AudioContext = function() {
-                    const ctx = new originalAudioContext();
-                    ctx.resume = ctx.resume || function(){};
-                    return ctx;
-                };
-            }
+        // === Максимальное подавление предупреждений ===
+        (function cleanConsole() {
+            const originalWarn = console.warn;
+            const originalError = console.error;
+            const originalLog = console.log;
 
-            // Подавляем некоторые известные предупреждения
-            const originalConsoleWarn = console.warn;
             console.warn = function(...args) {
-                if (typeof args[0] === 'string' && 
-                    (args[0].includes('autoplay') || 
-                     args[0].includes('mozPressure') || 
-                     args[0].includes('mozInputSource'))) {
-                    return; // глушим эти предупреждения
+                if (typeof args[0] === 'string') {
+                    if (args[0].includes('autoplay') ||
+                        args[0].includes('mozPressure') ||
+                        args[0].includes('mozInputSource') ||
+                        args[0].includes('InstallTrigger') ||
+                        args[0].includes('message from https://mrqz.me') ||
+                        args[0].includes('OpaqueResponseBlocking') ||
+                        args[0].includes('Glyph bbox')) {
+                        return;
+                    }
                 }
-                originalConsoleWarn.apply(console, args);
+                originalWarn.apply(console, args);
             };
+
+            console.error = function(...args) {
+                if (typeof args[0] === 'string' && args[0].includes('OpaqueResponseBlocking')) return;
+                originalError.apply(console, args);
+            };
+
+            // Один раз чистим консоль после загрузки
+            setTimeout(() => {
+                console.clear();
+                console.log('%c✅ Консоль очищена и очищена от спама', 'color:#00ff88; font-weight:bold');
+            }, 800);
         })();
 
-        // Инициализация VK Bridge
+        // Инициализация Bridge
         vkBridge.send('VKWebAppInit').catch(() => {});
 
         let vkUserId = null;
 
         function showVkId(id) {
             vkUserId = id;
-            const idDiv = document.getElementById('vk-id');
             document.getElementById('id-value').textContent = id;
-            idDiv.style.display = 'block';
+            document.getElementById('vk-id').style.display = 'block';
             window.vkUserId = id;
             window.vk_user_id = id;
-            console.log('✅ VK User ID показан:', id);
         }
 
-        // Получаем ID из URL
+        // Получаем ID
         const urlParams = new URLSearchParams(window.location.search);
         vkUserId = urlParams.get('vk_user_id');
 
@@ -96,16 +102,12 @@
             showVkId(vkUserId);
         }
 
-        // Дополнительно через Bridge
+        // Bridge (запасной вариант)
         async function tryBridge() {
             try {
                 const userInfo = await vkBridge.send('VKWebAppGetUserInfo');
-                if (userInfo.id && !vkUserId) {
-                    showVkId(userInfo.id);
-                }
-            } catch (e) {
-                console.error('Bridge error:', e);
-            }
+                if (userInfo.id && !vkUserId) showVkId(userInfo.id);
+            } catch (e) {}
         }
 
         function redirectToMarquiz() {
@@ -114,11 +116,9 @@
             if (vkUserId) {
                 finalLink += (baseLink.includes('?') ? '&' : '?') + `vk_user_id=${vkUserId}`;
             }
-            console.log('🔄 Переход в Marquiz:', finalLink);
-            
             setTimeout(() => {
                 window.location.replace(finalLink);
-            }, 1400);
+            }, 1200);
         }
 
         // Запуск
