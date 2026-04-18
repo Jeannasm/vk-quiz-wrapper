@@ -14,40 +14,44 @@
             background: linear-gradient(135deg, #f0f4ff, #e0e9ff);
             text-align: center;
             min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
         }
         .loader {
             font-size: 26px;
             color: #5181b8;
-            margin: 40px 0 20px;
+            margin-bottom: 30px;
         }
         #vk-id {
             position: fixed;
             top: 15px;
             left: 15px;
-            background: rgba(0,0,0,0.9);
+            background: rgba(0,0,0,0.92);
             color: #00ff88;
             padding: 12px 18px;
             border-radius: 10px;
             font-weight: bold;
-            display: none;
             z-index: 10000;
+            display: none;
         }
         .status {
             font-size: 18px;
-            margin: 20px 0;
-            min-height: 60px;
+            margin: 25px 0;
+            min-height: 70px;
         }
         .btn {
-            padding: 16px 40px;
+            padding: 16px 45px;
             font-size: 19px;
             background: #0077ff;
             color: white;
             border: none;
             border-radius: 12px;
-            margin-top: 20px;
             cursor: pointer;
+            box-shadow: 0 6px 20px rgba(0,119,255,0.4);
         }
-        .info { margin-top: 60px; color: #555; font-size: 14px; }
+        .info { margin-top: 50px; color: #555; font-size: 14.5px; }
     </style>
 </head>
 <body>
@@ -55,9 +59,9 @@
     
     <div id="vk-id">👤 VK ID: <span id="id-value"></span></div>
     
-    <div class="status" id="status"></div>
+    <div class="status" id="status">Определяем ваш VK ID...</div>
 
-    <button class="btn" id="quiz-btn" style="display:none;" onclick="openQuiz()">
+    <button class="btn" id="quiz-btn" style="display: none;" onclick="openQuiz()">
         Пройти квиз
     </button>
 
@@ -68,11 +72,11 @@
     <script>
         let vkUserId = null;
 
-        function showSuccess() {
+        function showUI() {
             document.getElementById('loader').style.display = 'none';
             document.getElementById('vk-id').style.display = 'block';
             document.getElementById('quiz-btn').style.display = 'block';
-            document.getElementById('status').innerHTML = '✓ VK ID успешно получен и сохранён';
+            document.getElementById('status').innerHTML = `✓ VK ID получен и сохранён`;
         }
 
         async function saveId(source) {
@@ -80,43 +84,58 @@
             try {
                 await fetch('/api/save-vk-id', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ vk_user_id: vkUserId, source })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ vk_user_id: vkUserId, source: source })
                 });
-            } catch(e) {}
+            } catch (e) { console.error(e); }
         }
 
         function openQuiz() {
             let link = "https://mrqz.me/69e11b260789030019533d08";
             if (vkUserId) link += `?vk_user_id=${vkUserId}`;
             saveId('quiz_started');
-            setTimeout(() => window.location.replace(link), 500);
+            setTimeout(() => { window.location.replace(link); }, 600);
         }
 
-        // Основная функция
+        // Главная инициализация
         async function init() {
+            console.log('🚀 Инициализация приложения...');
+
+            // 1. Получаем из URL параметров (самый надёжный способ в VK Mini Apps)
             const params = new URLSearchParams(window.location.search);
             vkUserId = params.get('vk_user_id');
 
-            // Если ID не пришёл через URL — пробуем Bridge
+            console.log('ID из URL:', vkUserId);
+
+            // 2. Если не нашли — используем Bridge
             if (!vkUserId) {
                 try {
+                    console.log('Пробуем VK Bridge...');
                     await vkBridge.send('VKWebAppInit');
                     const user = await vkBridge.send('VKWebAppGetUserInfo');
-                    if (user?.id) vkUserId = user.id;
-                } catch (e) {}
+                    if (user && user.id) {
+                        vkUserId = user.id;
+                        console.log('ID получен через Bridge:', vkUserId);
+                    }
+                } catch (err) {
+                    console.error('Bridge ошибка:', err);
+                }
             }
 
             if (vkUserId) {
                 document.getElementById('id-value').textContent = vkUserId;
                 await saveId('app_open');
-                showSuccess();
+                showUI();
             } else {
-                document.getElementById('loader').innerHTML = 'Не удалось получить VK ID.<br>Попробуйте перезапустить приложение.';
+                document.getElementById('loader').innerHTML = 'Не удалось получить VK ID.<br>Попробуйте перезапустить приложение из ВКонтакте.';
+                document.getElementById('status').textContent = '';
             }
         }
 
-        window.onload = init;
+        // Запускаем с небольшой задержкой — иногда помогает
+        window.addEventListener('load', () => {
+            setTimeout(init, 300);
+        });
     </script>
 </body>
-</html> 
+</html>
