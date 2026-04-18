@@ -1,17 +1,4 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
-
-const dataDir = path.join(process.cwd(), 'data');
-const filePath = path.join(dataDir, 'vk-ids.json');
-
-// Создаём папку и файл при первом запуске
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
-}
-if (!fs.existsSync(filePath)) {
-  fs.writeFileSync(filePath, JSON.stringify([]));
-}
 
 export async function POST(request) {
   try {
@@ -22,30 +9,25 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Нет VK ID' }, { status: 400 });
     }
 
-    let ids = [];
-    try {
-      ids = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    } catch (e) {}
-
     const numericId = Number(vk_user_id);
-    const exists = ids.some(item => item.vk_user_id === numericId);
+    const timestamp = new Date().toISOString();
 
-    if (!exists) {
-      ids.push({
-        vk_user_id: numericId,
-        date: new Date().toISOString(),
-        source
-      });
-    }
+    // Временное решение: выводим в логи Vercel
+    console.log(`[VK ID SAVED] ${numericId} | source: ${source} | time: ${timestamp}`);
 
-    fs.writeFileSync(filePath, JSON.stringify(ids, null, 2));
-
+    // Пока возвращаем успех (даже без реального сохранения)
     return NextResponse.json({ 
       success: true, 
-      total: ids.length 
+      total: "unknown (логи в Vercel)", 
+      saved_id: numericId,
+      message: 'ID получен и залогирован'
     });
+
   } catch (error) {
-    console.error(error);
-    return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 });
+    console.error('Ошибка в /api/save-vk-id:', error);
+    return NextResponse.json({ 
+      error: 'Внутренняя ошибка сервера',
+      details: error.message 
+    }, { status: 500 });
   }
 }
