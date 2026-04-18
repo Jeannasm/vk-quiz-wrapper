@@ -1,12 +1,10 @@
 {
   "buildCommand": "next build",
-  "outputDirectory": ".next",
   "framework": "nextjs",
-  "redirects": [
+  "rewrites": [
     {
-      "source": "/",
-      "destination": "/index.html",
-      "permanent": false
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
     }
   ]
 }
