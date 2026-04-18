@@ -1,85 +1,125 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <script>
-// === Получение VK User ID (работает в VK Mini Apps) ===
-console.log('🚀 VK Mini App wrapper запущен');
-
-const urlParams = new URLSearchParams(window.location.search);
-const vkUserId = urlParams.get('vk_user_id');
-
-if (vkUserId) {
-    console.log('✅ VK User ID получен:', vkUserId);
-
-    // Показываем ID на экране (для теста — потом можно скрыть)
-    const idDiv = document.createElement('div');
-    idDiv.style.cssText = `
-        position: fixed; 
-        top: 15px; 
-        left: 15px; 
-        background: rgba(0, 0, 0, 0.9); 
-        color: white; 
-        padding: 12px 18px; 
-        border-radius: 10px; 
-        font-size: 15px; 
-        z-index: 99999; 
-        font-family: system-ui, sans-serif;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    `;
-    idDiv.innerHTML = `👤 <strong>VK ID: ${vkUserId}</strong>`;
-    document.body.appendChild(idDiv);
-
-    // Сохраняем глобально (чтобы Marquiz мог его использовать, если нужно)
-    window.vkUserId = vkUserId;
-
-} else {
-    console.warn('❌ vk_user_id не найден в URL');
-}
-</script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Загрузка...</title>
+    <title>Какой ты маяк</title>
+    
+    <!-- VK Bridge -->
     <script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
+
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #f0f0f0; }
-        .loader { font-size: 18px; color: #5181b8; }
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background: #f0f0f0;
+            text-align: center;
+            overflow: hidden;
+        }
+        .loader {
+            font-size: 20px;
+            color: #5181b8;
+            margin-top: 100px;
+        }
+        /* Стиль для отображения VK ID */
+        #vk-id {
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 12px 18px;
+            border-radius: 10px;
+            font-size: 15px;
+            z-index: 99999;
+            font-family: system-ui, sans-serif;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            display: none;
+        }
     </style>
 </head>
 <body>
+
     <div class="loader">Загрузка квиза...</div>
+    
+    <!-- Блок с VK ID (будет показан, когда получим) -->
+    <div id="vk-id"></div>
 
     <script>
-        // Инициализация VK Bridge
-        vkBridge.send('VKWebAppInit');
+        // ==================== ПОЛУЧЕНИЕ VK USER ID ====================
+        console.log('🚀 VK Mini App wrapper запущен');
 
-        async function startQuiz() {
+        let vkUserId = null;
+
+        // 1. Первый способ — из URL параметров (самый быстрый и надёжный)
+        const urlParams = new URLSearchParams(window.location.search);
+        vkUserId = urlParams.get('vk_user_id');
+
+        if (vkUserId) {
+            console.log('✅ VK User ID получен из URL:', vkUserId);
+            showVkId(vkUserId);
+        } else {
+            console.warn('vk_user_id не найден в URL, пробуем через Bridge...');
+        }
+
+        // Функция показа ID на экране
+        function showVkId(id) {
+            const idDiv = document.getElementById('vk-id');
+            idDiv.innerHTML = `👤 <strong>VK ID: ${id}</strong>`;
+            idDiv.style.display = 'block';
+            window.vkUserId = id;        // глобальная переменная
+            window.vk_user_id = id;
+        }
+
+        // 2. Второй способ — через VK Bridge (на случай, если ID не пришёл в URL)
+        async function getUserIdViaBridge() {
             try {
-                // Получаем информацию о пользователе (включая vk_user_id)
+                await vkBridge.send('VKWebAppInit');
+                console.log('VKWebAppInit выполнен');
+
                 const userInfo = await vkBridge.send('VKWebAppGetUserInfo');
-                const vkUserId = userInfo.id;
+                vkUserId = userInfo.id;
 
-                console.log('✅ VK User ID получен:', vkUserId);
-
-                // Сюда вставь **прямую ссылку** на твой Marquiz-квиз
-                // (открой свой квиз в редакторе Marquiz и скопируй публичную ссылку)
-                const marquizLink = "https://mrqz.me/69e11b260789030019533d08";   // ←←← ИЗМЕНИ ЭТУ СТРОКУ!
-
-                // Можно добавить vk_user_id в URL как параметр (на всякий случай)
-                const finalLink = marquizLink.includes('?') 
-                    ? `${marquizLink}&vk_user_id=${vkUserId}` 
-                    : `${marquizLink}?vk_user_id=${vkUserId}`;
-
-                // Перенаправляем пользователя в Marquiz
-                window.location.replace(finalLink);
-
+                if (vkUserId) {
+                    console.log('✅ VK User ID получен через Bridge:', vkUserId);
+                    showVkId(vkUserId);
+                }
             } catch (error) {
-                console.error('Ошибка получения VK ID:', error);
-                // Если ошибка — просто перенаправляем без ID
-                window.location.replace("https://marquiz.ru/твоя_ссылка_на_квиз"); // ← тоже замени
+                console.error('❌ Ошибка получения ID через Bridge:', error);
             }
         }
 
-        // Запускаем сразу при загрузке страницы
+        // ==================== ЗАПУСК КВИЗА ====================
+        async function startQuiz() {
+            // Если ID уже есть из URL — сразу запускаем
+            if (vkUserId) {
+                redirectToMarquiz(vkUserId);
+                return;
+            }
+
+            // Если нет — пытаемся получить через Bridge
+            await getUserIdViaBridge();
+
+            // Запускаем квиз (с ID или без)
+            setTimeout(() => {
+                redirectToMarquiz(vkUserId);
+            }, 800);
+        }
+
+        function redirectToMarquiz(userId) {
+            const baseLink = "https://mrqz.me/69e11b260789030019533d08";
+
+            let finalLink = baseLink;
+            if (userId) {
+                finalLink += (baseLink.includes('?') ? '&' : '?') + `vk_user_id=${userId}`;
+            }
+
+            console.log('Переходим в Marquiz:', finalLink);
+            window.location.replace(finalLink);
+        }
+
+        // Запускаем всё после загрузки страницы
         window.onload = startQuiz;
     </script>
 </body>
