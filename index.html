@@ -1,6 +1,41 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
+    <script>
+// === Получение VK User ID (работает в VK Mini Apps) ===
+console.log('🚀 VK Mini App wrapper запущен');
+
+const urlParams = new URLSearchParams(window.location.search);
+const vkUserId = urlParams.get('vk_user_id');
+
+if (vkUserId) {
+    console.log('✅ VK User ID получен:', vkUserId);
+
+    // Показываем ID на экране (для теста — потом можно скрыть)
+    const idDiv = document.createElement('div');
+    idDiv.style.cssText = `
+        position: fixed; 
+        top: 15px; 
+        left: 15px; 
+        background: rgba(0, 0, 0, 0.9); 
+        color: white; 
+        padding: 12px 18px; 
+        border-radius: 10px; 
+        font-size: 15px; 
+        z-index: 99999; 
+        font-family: system-ui, sans-serif;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    `;
+    idDiv.innerHTML = `👤 <strong>VK ID: ${vkUserId}</strong>`;
+    document.body.appendChild(idDiv);
+
+    // Сохраняем глобально (чтобы Marquiz мог его использовать, если нужно)
+    window.vkUserId = vkUserId;
+
+} else {
+    console.warn('❌ vk_user_id не найден в URL');
+}
+</script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Загрузка...</title>
