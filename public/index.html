@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Какой ты маяк</title>
-    
+    <title>Какой ты маяк?</title>
     <script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
     <style>
         body {
@@ -20,122 +19,65 @@
             justify-content: center;
         }
         .loader {
-            font-size: 26px;
+            font-size: 24px;
             color: #5181b8;
             margin-bottom: 30px;
         }
-        #vk-id {
-            position: fixed;
-            top: 15px;
-            left: 15px;
-            background: rgba(0,0,0,0.92);
-            color: #00ff88;
-            padding: 12px 18px;
-            border-radius: 10px;
-            font-weight: bold;
-            z-index: 10000;
-            display: none;
-        }
-        .status {
-            font-size: 18px;
-            margin: 25px 0;
-            min-height: 70px;
-        }
-        .btn {
-            padding: 16px 45px;
-            font-size: 19px;
-            background: #0077ff;
-            color: white;
+        iframe {
+            width: 100%;
+            max-width: 800px;
+            height: 90vh;
             border: none;
             border-radius: 12px;
-            cursor: pointer;
-            box-shadow: 0 6px 20px rgba(0,119,255,0.4);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
         }
-        .info { margin-top: 50px; color: #555; font-size: 14.5px; }
     </style>
 </head>
 <body>
     <div class="loader" id="loader">Загрузка квиза...</div>
-    
-    <div id="vk-id">👤 VK ID: <span id="id-value"></span></div>
-    
-    <div class="status" id="status">Определяем ваш VK ID...</div>
-
-    <button class="btn" id="quiz-btn" style="display: none;" onclick="openQuiz()">
-        Пройти квиз
-    </button>
-
-    <div class="info">
-        После прохождения квиза ваш VK ID будет сохранён для статистики вуза
-    </div>
+    <iframe id="quizFrame" style="display: none;"></iframe>
 
     <script>
-        let vkUserId = null;
+        // Инициализация VK Bridge
+        vkBridge.send('VKWebAppInit');
 
-        function showUI() {
-            document.getElementById('loader').style.display = 'none';
-            document.getElementById('vk-id').style.display = 'block';
-            document.getElementById('quiz-btn').style.display = 'block';
-            document.getElementById('status').innerHTML = `✓ VK ID получен и сохранён`;
-        }
-
-        async function saveId(source) {
-            if (!vkUserId) return;
+        async function loadQuizWithVKID() {
             try {
-                await fetch('/api/save-vk-id', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ vk_user_id: vkUserId, source: source })
-                });
-            } catch (e) { console.error(e); }
-        }
+                // Получаем данные пользователя
+                const user = await vkBridge.send('VKWebAppGetUserInfo');
+                const vkId = user.id;
+                const firstName = user.first_name || '';
 
-        function openQuiz() {
-            let link = "https://mrqz.me/69e11b260789030019533d08";
-            if (vkUserId) link += `?vk_user_id=${vkUserId}`;
-            saveId('quiz_started');
-            setTimeout(() => { window.location.replace(link); }, 600);
-        }
+                console.log('VK ID получен:', vkId);
 
-        // Главная инициализация
-        async function init() {
-            console.log('🚀 Инициализация приложения...');
+                // ←←← СЮДА ВСТАВЬ СВОЮ ССЫЛКУ НА MARQUIZ ←←←
+                let marquizLink = https://mrqz.me/69e11b260789030019533d08;   // замени на реальную
 
-            // 1. Получаем из URL параметров (самый надёжный способ в VK Mini Apps)
-            const params = new URLSearchParams(window.location.search);
-            vkUserId = params.get('vk_user_id');
+                // Добавляем vk_id в URL
+                const separator = marquizLink.includes('?') ? '&' : '?';
+                const finalLink = `${marquizLink}${separator}vk_id=${vkId}&first_name=${encodeURIComponent(firstName)}`;
 
-            console.log('ID из URL:', vkUserId);
+                // Показываем iframe с квизом
+                const iframe = document.getElementById('quizFrame');
+                iframe.src = finalLink;
+                iframe.style.display = 'block';
 
-            // 2. Если не нашли — используем Bridge
-            if (!vkUserId) {
-                try {
-                    console.log('Пробуем VK Bridge...');
-                    await vkBridge.send('VKWebAppInit');
-                    const user = await vkBridge.send('VKWebAppGetUserInfo');
-                    if (user && user.id) {
-                        vkUserId = user.id;
-                        console.log('ID получен через Bridge:', vkUserId);
-                    }
-                } catch (err) {
-                    console.error('Bridge ошибка:', err);
-                }
-            }
+                document.getElementById('loader').style.display = 'none';
 
-            if (vkUserId) {
-                document.getElementById('id-value').textContent = vkUserId;
-                await saveId('app_open');
-                showUI();
-            } else {
-                document.getElementById('loader').innerHTML = 'Не удалось получить VK ID.<br>Попробуйте перезапустить приложение из ВКонтакте.';
-                document.getElementById('status').textContent = '';
+            } catch (error) {
+                console.error('Ошибка получения VK ID:', error);
+                // Fallback — открываем квиз без ID
+                const iframe = document.getElementById('quizFrame');
+                iframe.src = "https://mrqz.me/твоя-ссылка-на-квиз";   // замени
+                iframe.style.display = 'block';
+                document.getElementById('loader').style.display = 'none';
             }
         }
 
-        // Запускаем с небольшой задержкой — иногда помогает
-        window.addEventListener('load', () => {
-            setTimeout(init, 300);
-        });
+        // Запускаем после небольшой задержки (лучше после взаимодействия, но для простоты так)
+        window.onload = () => {
+            setTimeout(loadQuizWithVKID, 800);
+        };
     </script>
 </body>
 </html>
