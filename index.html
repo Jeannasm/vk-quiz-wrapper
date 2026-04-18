@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Загрузка...</title>
+    <script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #f0f0f0; }
+        .loader { font-size: 18px; color: #5181b8; }
+    </style>
+</head>
+<body>
+    <div class="loader">Загрузка квиза...</div>
+
+    <script>
+        // Инициализация VK Bridge
+        vkBridge.send('VKWebAppInit');
+
+        async function startQuiz() {
+            try {
+                // Получаем информацию о пользователе (включая vk_user_id)
+                const userInfo = await vkBridge.send('VKWebAppGetUserInfo');
+                const vkUserId = userInfo.id;
+
+                console.log('✅ VK User ID получен:', vkUserId);
+
+                // Сюда вставь **прямую ссылку** на твой Marquiz-квиз
+                // (открой свой квиз в редакторе Marquiz и скопируй публичную ссылку)
+                const marquizLink = "https://marquiz.ru/твоя_ссылка_на_квиз";   // ←←← ИЗМЕНИ ЭТУ СТРОКУ!
+
+                // Можно добавить vk_user_id в URL как параметр (на всякий случай)
+                const finalLink = marquizLink.includes('?') 
+                    ? `${marquizLink}&vk_user_id=${vkUserId}` 
+                    : `${marquizLink}?vk_user_id=${vkUserId}`;
+
+                // Перенаправляем пользователя в Marquiz
+                window.location.replace(finalLink);
+
+            } catch (error) {
+                console.error('Ошибка получения VK ID:', error);
+                // Если ошибка — просто перенаправляем без ID
+                window.location.replace("https://marquiz.ru/твоя_ссылка_на_квиз"); // ← тоже замени
+            }
+        }
+
+        // Запускаем сразу при загрузке страницы
+        window.onload = startQuiz;
+    </script>
+</body>
+</html>
